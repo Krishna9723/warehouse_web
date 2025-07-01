@@ -4,41 +4,52 @@
     <title>Alance</title>
 </head>
 <body>
-    <h2>Welcome to Alance</h2>
+    <h2 style="text-align:center; color:red;">Alance</h2>
 
-    <form method="GET" action="/search">
-        <input type="text" name="query" placeholder="Search item..." required>
-        <button type="submit">Search</button>
-        <a href="/all"><button type="button">Show All Items</button></a>
-    </form>
-
-    <form method="POST" action="/add">
+    <!-- Add Item Form -->
+    <form method="POST" action="/add" style="text-align:center;">
         <input type="text" name="name" placeholder="Item Name" required>
         <input type="text" name="location" placeholder="Location" required>
         <input type="text" name="description" placeholder="Description" required>
         <button type="submit">Add Item</button>
     </form>
 
-    <table border="1">
-        <tr>
-            <th>Name</th>
-            <th>Location</th>
-            <th>Description</th>
-            <th>Actions</th>
-        </tr>
-        {% for item in items %}
-        <tr>
-            <td>{{ item[1] }}</td>
-            <td>{{ item[2] }}</td>
-            <td>{{ item[3] }}</td>
-            <td>
-                <a href="/edit/{{ item[0] }}">Edit</a> |
-                <a href="/delete/{{ item[0] }}">Delete</a>
-            </td>
-        </tr>
-        {% endfor %}
+    <!-- Search + Show All -->
+    <form method="GET" action="/search" style="text-align:center; margin-top:10px;">
+        <input type="text" name="query" placeholder="Search by name">
+        <button type="submit">Search</button>
+        <a href="/all"><button type="button">Show All Items</button></a>
+    </form>
+
+    <!-- Items Table -->
+    <table border="1" cellpadding="10" cellspacing="0" style="width:100%; margin-top:20px;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Description</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item[0] }}</td>
+                <td>{{ item[1] }}</td>
+                <td>{{ item[2] }}</td>
+                <td>{{ item[3] }}</td>
+                <td>
+                    <a href="/edit/{{ item[0] }}">Edit</a> |
+                    <a href="/delete/{{ item[0] }}" style="color: red;">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
 
-    <p><a href="/logout">Logout</a></p>
+    <div style="text-align:center; margin-top:20px;">
+        <a href="/logout">Logout</a>
+    </div>
 </body>
 </html>
