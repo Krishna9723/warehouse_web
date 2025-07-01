@@ -2,40 +2,43 @@
 <html>
 <head>
     <title>Alance</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Alance</h1>
+    <h2>Welcome to Alance</h2>
 
-    <form action="/add" method="POST">
+    <form method="GET" action="/search">
+        <input type="text" name="query" placeholder="Search item..." required>
+        <button type="submit">Search</button>
+        <a href="/all"><button type="button">Show All Items</button></a>
+    </form>
+
+    <form method="POST" action="/add">
         <input type="text" name="name" placeholder="Item Name" required>
         <input type="text" name="location" placeholder="Location" required>
         <input type="text" name="description" placeholder="Description" required>
         <button type="submit">Add Item</button>
     </form>
 
-    <form action="/search" method="POST">
-        <input type="text" name="search" placeholder="Search by name">
-        <button type="submit">Search</button>
-    </form>
-
-    <table>
+    <table border="1">
         <tr>
-            <th>ID</th>
             <th>Name</th>
             <th>Location</th>
             <th>Description</th>
-            <th>Action</th>
+            <th>Actions</th>
         </tr>
         {% for item in items %}
         <tr>
-            <td>{{ item[0] }}</td>
             <td>{{ item[1] }}</td>
             <td>{{ item[2] }}</td>
             <td>{{ item[3] }}</td>
-            <td><a href="/delete/{{ item[0] }}">Delete</a></td>
+            <td>
+                <a href="/edit/{{ item[0] }}">Edit</a> |
+                <a href="/delete/{{ item[0] }}">Delete</a>
+            </td>
         </tr>
         {% endfor %}
     </table>
+
+    <p><a href="/logout">Logout</a></p>
 </body>
 </html>
