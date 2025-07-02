@@ -1,49 +1,61 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import sqlite3
-import os 
-from flask import send_file
-import openpyxl
-import io
-
+import psycopg2
+import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'
-PASSWORD = 'Alance123'
+app.secret_key = 'your_secret_key'  # Needed for session management
 
+# ------------------ Database Connection ------------------
+def connect_db():
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT")
+    )
+
+# ------------------ Initialize DB Table ------------------
 def init_db():
-    conn = sqlite3.connect('warehouse.db')
+    conn = connect_db()
     cur = conn.cursor()
     cur.execute('''
         CREATE TABLE IF NOT EXISTS items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            location TEXT NOT NULL,
-            description TEXT NOT NULL
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            location TEXT,
+            description TEXT
         )
     ''')
     conn.commit()
     conn.close()
 
-@app.route('/', methods=['GET', 'POST'])
+init_db()
+
+# ------------------ Routes ------------------
+@app.route('/')
 def login():
-    if request.method == 'POST':
-        if request.form['password'] == PASSWORD:
-            session['logged_in'] = True
-            return redirect('/home')
-        else:
-            return render_template('login.html', error="Invalid password")
     return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+def do_login():
+    password = request.form['password']
+    if password == 'Alance123':
+        session['logged_in'] = True
+        return redirect(url_for('home'))
+    return render_template('login.html', error='Incorrect password')
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect('/')
+    return redirect(url_for('login'))
 
 @app.route('/home')
-def index():
+def home():
     if not session.get('logged_in'):
-        return redirect('/')
-    conn = sqlite3.connect('warehouse.db')
+        return redirect(url_for('login'))
+
+    conn = connect_db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM items")
     items = cur.fetchall()
@@ -52,102 +64,61 @@ def index():
 
 @app.route('/add', methods=['POST'])
 def add():
-    if not session.get('logged_in'):
-        return redirect('/')
     name = request.form['name']
     location = request.form['location']
     description = request.form['description']
-    if name.strip() and location.strip() and description.strip():
-        conn = sqlite3.connect('warehouse.db')
+
+    if name and location and description:
+        conn = connect_db()
         cur = conn.cursor()
-        cur.execute("INSERT INTO items (name, location, description) VALUES (?, ?, ?)",
-                    (name, location, description))
+        cur.execute("INSERT INTO items (name, location, description) VALUES (%s, %s, %s)", (name, location, description))
         conn.commit()
         conn.close()
-    return redirect('/home')
+    return redirect(url_for('home'))
 
 @app.route('/delete/<int:item_id>')
 def delete(item_id):
-    if not session.get('logged_in'):
-        return redirect('/')
-    conn = sqlite3.connect('warehouse.db')
+    conn = connect_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM items WHERE id=?", (item_id,))
+    cur.execute("DELETE FROM items WHERE id = %s", (item_id,))
     conn.commit()
     conn.close()
-    return redirect('/home')
+    return redirect(url_for('home'))
+
+@app.route('/search')
+def search():
+    query = request.args.get('query')
+    conn = connect_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM items WHERE name ILIKE %s", (f"%{query}%",))
+    items = cur.fetchall()
+    conn.close()
+    return render_template('index.html', items=items)
+
+@app.route('/all')
+def show_all():
+    return redirect(url_for('home'))
 
 @app.route('/edit/<int:item_id>', methods=['GET', 'POST'])
 def edit(item_id):
-    if not session.get('logged_in'):
-        return redirect('/')
-    conn = sqlite3.connect('warehouse.db')
+    conn = connect_db()
     cur = conn.cursor()
     if request.method == 'POST':
         name = request.form['name']
         location = request.form['location']
         description = request.form['description']
-        cur.execute("UPDATE items SET name=?, location=?, description=? WHERE id=?",
+        cur.execute("UPDATE items SET name = %s, location = %s, description = %s WHERE id = %s",
                     (name, location, description, item_id))
         conn.commit()
         conn.close()
-        return redirect('/home')
-    cur.execute("SELECT * FROM items WHERE id=?", (item_id,))
-    item = cur.fetchone()
-    conn.close()
-    return render_template('edit.html', item=item)
-
-@app.route('/search')
-def search():
-    if not session.get('logged_in'):
-        return redirect('/')
-    query = request.args.get('query', '')
-    conn = sqlite3.connect('warehouse.db')
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM items WHERE name LIKE ?", ('%' + query + '%',))
-    items = cur.fetchall()
-    conn.close()
-    return render_template('index.html', items=items)
-
-
-
-@app.route('/all')
-def all_items():
-    return redirect('/home')
-@app.route('/export')
-def export_to_excel():
-    conn = sqlite3.connect('warehouse.db')
-    cur = conn.cursor()
-    cur.execute("SELECT name, location, description FROM items")
-    rows = cur.fetchall()
-    conn.close()
-
-    # Create workbook
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Warehouse Items"
-
-    # Add headers
-    ws.append(["Name", "Location", "Description"])
-
-    # Add data
-    for row in rows:
-        ws.append(row)
-
-    # Save to memory stream
-    stream = io.BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-
-    return send_file(
-        stream,
-        as_attachment=True,
-        download_name="warehouse_items.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
+        return redirect(url_for('home'))
+    else:
+        cur.execute("SELECT * FROM items WHERE id = %s", (item_id,))
+        item = cur.fetchone()
+        conn.close()
+        return render_template('edit.html', item=item)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host='0.0.0.0', port=5000)
+
 
