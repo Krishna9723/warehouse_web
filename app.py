@@ -1,6 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 import os 
+from flask import send_file
+import openpyxl
+import io
+
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
@@ -105,9 +109,43 @@ def search():
     conn.close()
     return render_template('index.html', items=items)
 
+
+
 @app.route('/all')
 def all_items():
     return redirect('/home')
+@app.route('/export')
+def export_to_excel():
+    conn = sqlite3.connect('warehouse.db')
+    cur = conn.cursor()
+    cur.execute("SELECT name, location, description FROM items")
+    rows = cur.fetchall()
+    conn.close()
+
+    # Create workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Warehouse Items"
+
+    # Add headers
+    ws.append(["Name", "Location", "Description"])
+
+    # Add data
+    for row in rows:
+        ws.append(row)
+
+    # Save to memory stream
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    return send_file(
+        stream,
+        as_attachment=True,
+        download_name="warehouse_items.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
